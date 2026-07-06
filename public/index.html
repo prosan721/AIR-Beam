@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AirBeam - Ultra-Fast Wi-Fi File Sharing (Up to 30GB)</title>
+  <meta name="description" content="Share files up to 30GB over local Wi-Fi / Hotspot with 0 lag across Mobile & PC. Supports 1-to-10 devices simultaneously.">
+  
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-background">
+    <div class="glow-sphere sphere-1"></div>
+    <div class="glow-sphere sphere-2"></div>
+    <div class="grid-pattern"></div>
+  </div>
+
+  <div class="app-container">
+    <!-- Navbar / Header -->
+    <header class="navbar">
+      <div class="logo">
+        <div class="logo-icon"><i data-lucide="zap"></i></div>
+        <div class="logo-text">AirBeam <span>PRO</span></div>
+      </div>
+      
+      <div class="nav-actions">
+        <div class="network-badge" id="networkBadge">
+          <span class="wifi-dot"></span>
+          <span id="networkIpText" data-i18n="detectingWifi">Detecting Wi-Fi...</span>
+          <button id="showQrBtn" class="icon-btn-sm scanner-icon-btn" title="Scan / Show QR Code" data-i18n-title="showQr">
+            <i data-lucide="scan"></i>
+            <span class="scanner-pulse-dot"></span>
+          </button>
+        </div>
+        <button id="openSettingsBtn" class="icon-btn-sm settings-trigger-btn" title="Settings" data-i18n-title="settings"><i data-lucide="settings"></i></button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-wrapper">
+      
+      <!-- MODE SELECTION CARDS (When user opens site) -->
+      <section id="modeSelectionSection" class="mode-selection-grid">
+        <div class="mode-card sender-card" id="selectSenderMode">
+          <div class="card-glow"></div>
+          <div class="card-icon"><i data-lucide="upload-cloud"></i></div>
+          <h2 data-i18n="shareFileTitle">Share File (Sender)</h2>
+          <p data-i18n="shareFileDesc">Send files up to <b>30GB</b> over local Wi-Fi/Hotspot to up to <b>10 devices simultaneously</b> with 0 lag.</p>
+          <button class="btn btn-primary"><span data-i18n="startSharing">Start Sharing</span> <i data-lucide="arrow-right"></i></button>
+        </div>
+
+        <div class="mode-card receiver-card" id="selectReceiverMode">
+          <div class="card-glow"></div>
+          <div class="card-icon"><i data-lucide="download-cloud"></i></div>
+          <h2 data-i18n="receiveFileTitle">Receive File (Receiver)</h2>
+          <p data-i18n="receiveFileDesc">Join a local sharing room using a 6-digit code or QR scan. Save files directly to your device local storage.</p>
+          
+          <div class="quick-join-box" onclick="event.stopPropagation()">
+            <input type="text" id="quickRoomInput" maxlength="6" placeholder="Enter 6-digit Code" data-i18n-placeholder="quickJoinPlaceholder" autocomplete="off">
+            <button id="quickJoinBtn" class="btn btn-secondary"><i data-lucide="log-in"></i> <span data-i18n="join">Join</span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SENDER PANEL (File Upload & Room Broadcast) -->
+      <section id="senderSection" class="panel-card hidden">
+        <div class="panel-header">
+          <button class="btn-back" id="backFromSenderBtn"><i data-lucide="chevron-left"></i> <span data-i18n="back">Back</span></button>
+          <h2 class="panel-title"><i data-lucide="upload"></i> <span data-i18n="senderDashboard">Sender Dashboard</span></h2>
+          <div class="badge badge-purple" id="roomCodeBadge"><span data-i18n="room">Room:</span> ------</div>
+        </div>
+
+        <!-- File Select Dropzone -->
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="fileInput" class="file-input-hidden">
+          <div class="dropzone-content" id="dropzoneContent">
+            <div class="upload-icon-pulse"><i data-lucide="file-up"></i></div>
+            <h3><span data-i18n="dragDrop">Drag & Drop file here or</span> <span data-i18n="browse">Browse</span></h3>
+            <p class="drop-hint" data-i18n="dropHint">Supports video, zip, ISO, 4K media, docs up to <b>30GB</b> without memory lag</p>
+          </div>
+
+          <!-- File Info Card (Selected File) -->
+          <div class="selected-file-card hidden" id="selectedFileCard">
+            <div class="file-icon" id="fileTypeIcon"><i data-lucide="file"></i></div>
+            <div class="file-details">
+              <h4 id="selectedFileName">filename.zip</h4>
+              <div class="file-meta-row">
+                <span id="selectedFileSize">0 MB</span> • 
+                <span id="selectedFileChunks">0 chunks</span>
+              </div>
+            </div>
+            <button id="removeFileBtn" class="icon-btn-danger" title="Change file"><i data-lucide="x"></i></button>
+          </div>
+        </div>
+
+        <!-- Room Sharing Details & Connected Receivers -->
+        <div class="sharing-details-container hidden" id="sharingDetailsContainer">
+          <div class="room-share-bar">
+            <div class="room-info-box">
+              <span class="label" data-i18n="shareRoomCode">SHARE THIS ROOM CODE:</span>
+              <div class="code-copy-wrapper">
+                <span class="room-code-display" id="displayRoomCode">------</span>
+                <button id="copyCodeBtn" class="btn-sm btn-ghost"><i data-lucide="copy"></i> <span data-i18n="copy">Copy</span></button>
+              </div>
+            </div>
+
+            <div class="qr-thumbnail-box" id="qrThumbnailBox">
+              <img id="roomQrImage" src="" alt="Room QR Code">
+              <span data-i18n="scanOnPhone">Scan on Phone</span>
+            </div>
+          </div>
+
+          <!-- Connected Devices List (1 to 10 Devices) -->
+          <div class="receivers-header">
+            <h3><i data-lucide="users"></i> <span data-i18n="connectedReceivers">Connected Receivers</span> (<span id="connectedCount">0</span>/10)</h3>
+            <span class="status-indicator-live"><span class="dot"></span> <span data-i18n="liveLocalMesh">Live Local Mesh</span></span>
+          </div>
+
+          <div class="receivers-list" id="receiversList">
+            <div class="empty-receivers-state">
+              <i data-lucide="smartphone"></i>
+              <p data-i18n="waitingReceivers">Waiting for receiving devices to join room code or scan QR code on local Wi-Fi...</p>
+            </div>
+          </div>
+
+          <!-- Sender Broadcast Action Controls -->
+          <div class="sender-actions">
+            <button id="startBroadcastBtn" class="btn btn-success btn-lg" disabled>
+              <i data-lucide="play"></i> <span data-i18n="startBroadcast">Start Fast Transfer (Broadcast)</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- RECEIVER PANEL (Waiting / Downloading File) -->
+      <section id="receiverSection" class="panel-card hidden">
+        <div class="panel-header">
+          <button class="btn-back" id="backFromReceiverBtn"><i data-lucide="chevron-left"></i> <span data-i18n="back">Back</span></button>
+          <h2 class="panel-title"><i data-lucide="download"></i> <span data-i18n="receiverDashboard">Receiver Dashboard</span></h2>
+          <div class="badge badge-cyan" id="receiverRoomBadge"><span data-i18n="room">Room:</span> ------</div>
+        </div>
+
+        <!-- Connection / Receiving State -->
+        <div class="receiver-status-box">
+          
+          <!-- State 1: Connecting -->
+          <div id="receiverConnectingState" class="rx-state">
+            <div class="spinner"></div>
+            <h3 data-i18n="connectingSender">Connecting to Sender Device...</h3>
+            <p data-i18n="verifyingStream">Verifying local Wi-Fi data stream</p>
+          </div>
+
+          <!-- State 2: Ready to Receive -->
+          <div id="receiverReadyState" class="rx-state hidden">
+            <div class="incoming-file-card">
+              <div class="incoming-icon"><i data-lucide="file-check"></i></div>
+              <div class="incoming-info">
+                <span class="label" data-i18n="incomingFile">INCOMING FILE</span>
+                <h3 id="rxFileName">LargeFile.mp4</h3>
+                <span class="file-size-tag" id="rxFileSize">0.00 GB</span>
+              </div>
+            </div>
+            
+            <div class="auto-save-notice">
+              <i data-lucide="hard-drive-download"></i>
+              <span data-i18n="autoSaveNotice">File will automatically download & save directly to your device local storage.</span>
+            </div>
+          </div>
+
+          <!-- State 3: Downloading Progress -->
+          <div id="receiverDownloadingState" class="rx-state hidden">
+            <div class="progress-ring-wrapper">
+              <svg class="progress-ring" width="160" height="160">
+                <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.08)" stroke-width="12" fill="transparent" r="70" cx="80" cy="80"/>
+                <circle id="progressCircle" class="progress-ring__circle" stroke="#00F2FE" stroke-width="12" fill="transparent" r="70" cx="80" cy="80"/>
+              </svg>
+              <div class="progress-text">
+                <span id="progressPercentage">0%</span>
+                <small id="rxSpeed">0 MB/s</small>
+              </div>
+            </div>
+
+            <div class="transfer-stats-grid">
+              <div class="stat-item">
+                <span class="stat-label" data-i18n="transferred">Transferred</span>
+                <span class="stat-val" id="rxTransferredBytes">0 MB / 0 GB</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label" data-i18n="eta">Estimated Time (ETA)</span>
+                <span class="stat-val" id="rxEta" data-i18n="calculating">Calculating...</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label" data-i18n="chunkStream">Chunk Stream</span>
+                <span class="stat-val" id="rxChunkCount">0 / 0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- State 4: Complete & Saved -->
+          <div id="receiverCompleteState" class="rx-state hidden">
+            <div class="complete-badge-icon"><i data-lucide="check-circle-2"></i></div>
+            <h2 data-i18n="transferComplete">Transfer Complete!</h2>
+            <p data-i18n="savedLocally">File has been saved locally to your device storage.</p>
+            <a id="rxDownloadTriggerBtn" class="btn btn-primary btn-lg" download>
+              <i data-lucide="download"></i> <span data-i18n="saveOpenFile">Click to Save / Open File</span>
+            </a>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- QR & Camera Scanner Modal -->
+    <div id="qrModal" class="modal-backdrop hidden">
+      <div class="modal-card qr-scanner-modal-card">
+        <button id="closeQrModal" class="modal-close"><i data-lucide="x"></i></button>
+
+        <!-- Role Context Badge -->
+        <div id="qrModalRoleBadge" class="modal-role-badge badge-cyan">
+          <i data-lucide="wifi"></i> <span id="modalRoleBadgeText" data-i18n="hostScannerMode">Host Device Scanner Mode</span>
+        </div>
+
+        <h3 id="qrModalTitleText" data-i18n="qrModalTitle">Wi-Fi Device Scanner & Connection</h3>
+        
+        <!-- Tab Navigation -->
+        <div class="qr-tab-nav">
+          <button id="tabMyQrBtn" class="qr-tab-btn active">
+            <i data-lucide="qr-code"></i> <span data-i18n="tabMyQr">My QR Code</span>
+          </button>
+          <button id="tabScanCameraBtn" class="qr-tab-btn">
+            <i data-lucide="camera"></i> <span data-i18n="tabScanCamera">Scan Camera / Photo</span>
+          </button>
+        </div>
+
+        <!-- Tab 1: Show My QR Code -->
+        <div id="tabMyQrContent" class="qr-tab-content">
+          <p class="qr-modal-desc" data-i18n="myQrDesc">Scan with any phone/tablet connected to the same Wi-Fi or Mobile Hotspot</p>
+          <div class="modal-qr-frame">
+            <img id="modalQrImg" src="" alt="Wi-Fi QR Code">
+          </div>
+          <div class="modal-url-box-wrapper">
+            <div class="modal-url-box" id="modalUrlText">http://192.168.x.x:3000</div>
+            <button id="copyServerUrlBtn" class="btn btn-secondary btn-sm"><i data-lucide="copy"></i> <span data-i18n="copy">Copy</span></button>
+          </div>
+        </div>
+
+        <!-- Tab 2: Camera Capture & Photo Scanner -->
+        <div id="tabScanCameraContent" class="qr-tab-content hidden">
+          <p class="qr-modal-desc" id="scanCameraDescText" data-i18n="scanCameraDesc">Point camera at another device's QR code or upload a photo to connect instantly.</p>
+
+          <!-- Camera Stream Frame / Viewport with Laser Reticle -->
+          <div class="camera-viewport-wrapper" id="cameraViewportWrapper">
+            <div id="qrReaderViewport" class="qr-reader-viewport"></div>
+            
+            <div id="scannerOverlay" class="scanner-overlay hidden">
+              <div class="reticle-corner reticle-tl"></div>
+              <div class="reticle-corner reticle-tr"></div>
+              <div class="reticle-corner reticle-bl"></div>
+              <div class="reticle-corner reticle-br"></div>
+              <div class="scan-laser-beam"></div>
+            </div>
+
+            <div id="cameraPlaceholder" class="camera-placeholder">
+              <div class="camera-off-icon-ring"><i data-lucide="aperture"></i></div>
+              <span data-i18n="cameraOffHint">Camera is turned off</span>
+            </div>
+
+            <!-- Canvas for photo snapshot capture -->
+            <canvas id="snapshotCanvas" class="hidden-canvas"></canvas>
+          </div>
+
+          <!-- Photo File Upload Preview Box -->
+          <div id="photoPreviewContainer" class="photo-preview-container hidden">
+            <img id="photoPreviewImg" src="" alt="Photo preview">
+            <div class="photo-preview-info">
+              <span class="preview-badge" data-i18n="photoCaptured">Photo Loaded</span>
+              <span id="photoPreviewName" class="preview-filename">image.jpg</span>
+            </div>
+            <button id="clearPhotoBtn" class="btn-sm btn-ghost-danger"><i data-lucide="trash-2"></i></button>
+          </div>
+
+          <!-- Action Buttons for Camera & Photo Upload -->
+          <div class="camera-actions-row">
+            <button id="toggleCameraBtn" class="btn btn-primary btn-sm">
+              <i data-lucide="video"></i> <span id="toggleCameraText" data-i18n="startCameraBtn">Start Live Camera</span>
+            </button>
+
+            <button id="switchCameraBtn" class="btn btn-secondary btn-sm icon-btn-only hidden" title="Flip Camera" data-i18n-title="flipCamera">
+              <i data-lucide="flip-horizontal"></i>
+            </button>
+
+            <button id="captureSnapshotBtn" class="btn btn-warning btn-sm hidden">
+              <i data-lucide="camera"></i> <span data-i18n="capturePhotoBtn">Photo Capture</span>
+            </button>
+
+            <label for="qrFileInput" class="btn btn-secondary btn-sm label-as-btn">
+              <i data-lucide="image-plus"></i> <span data-i18n="uploadPhotoBtn">Photo / Gallery</span>
+            </label>
+            <input type="file" id="qrFileInput" accept="image/*" capture="environment" class="file-input-hidden">
+          </div>
+
+          <div id="scanResultStatus" class="scan-status-msg hidden"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-backdrop hidden">
+      <div class="modal-card settings-card">
+        <div class="settings-modal-header">
+          <div class="settings-title-group">
+            <div class="settings-icon-badge"><i data-lucide="settings"></i></div>
+            <div>
+              <h3 data-i18n="settingsTitle">App Settings</h3>
+              <p class="settings-subtitle" data-i18n="settingsSubtitle">Customize save path, privacy, theme & language</p>
+            </div>
+          </div>
+          <button id="closeSettingsModal" class="modal-close"><i data-lucide="x"></i></button>
+        </div>
+
+        <div class="settings-body">
+          <!-- Section 1: Local Save Path -->
+          <div class="settings-section">
+            <div class="section-title">
+              <i data-lucide="folder-down"></i>
+              <span data-i18n="savePathTitle">Local Folder Save Path</span>
+            </div>
+            <p class="section-desc" data-i18n="savePathDesc">Choose default storage folder on your device for incoming downloads.</p>
+            <div class="path-input-group">
+              <div class="path-display" id="currentSavePath">Downloads/AirBeam</div>
+              <button id="chooseFolderBtn" class="btn btn-secondary btn-sm">
+                <i data-lucide="folder-search"></i> <span data-i18n="browseFolder">Browse Folder</span>
+              </button>
+            </div>
+            <div class="setting-toggle-row">
+              <label for="askSavePathToggle" data-i18n="askSaveLocation">Prompt for save location on every download</label>
+              <input type="checkbox" id="askSavePathToggle" class="custom-toggle">
+            </div>
+          </div>
+
+          <!-- Section 2: Privacy Settings -->
+          <div class="settings-section">
+            <div class="section-title">
+              <i data-lucide="shield-check"></i>
+              <span data-i18n="privacyTitle">Privacy & Network Security</span>
+            </div>
+            
+            <div class="setting-toggle-row">
+              <div>
+                <div class="toggle-label" data-i18n="directWifiOnly">Direct Wi-Fi Only Mode</div>
+                <div class="toggle-desc" data-i18n="directWifiOnlyDesc">Force P2P transfer strictly within local network</div>
+              </div>
+              <input type="checkbox" id="directWifiToggle" class="custom-toggle" checked>
+            </div>
+
+            <div class="setting-toggle-row">
+              <div>
+                <div class="toggle-label" data-i18n="encryptedStreaming">End-to-End Encryption</div>
+                <div class="toggle-desc" data-i18n="encryptedStreamingDesc">Encrypt WebRTC stream chunks with TLS/AES</div>
+              </div>
+              <input type="checkbox" id="encryptionToggle" class="custom-toggle" checked>
+            </div>
+
+            <div class="setting-toggle-row">
+              <div>
+                <div class="toggle-label" data-i18n="deviceVisibility">Device Discovery Visibility</div>
+                <div class="toggle-desc" data-i18n="deviceVisibilityDesc">Control if local devices can discover this node</div>
+              </div>
+              <select id="visibilitySelect" class="custom-select">
+                <option value="visible" data-i18n="visibleToLocal">Visible to Local Peers</option>
+                <option value="incognito" data-i18n="incognitoMode">Incognito / Private</option>
+              </select>
+            </div>
+
+            <div class="clear-cache-wrapper">
+              <button id="clearCacheBtn" class="btn btn-ghost-danger btn-sm">
+                <i data-lucide="trash-2"></i> <span data-i18n="clearCache">Clear Transfer History & Cache</span>
+              </button>
+              <span id="clearCacheToast" class="toast-inline hidden">Cleared!</span>
+            </div>
+          </div>
+
+          <!-- Section 3: Language Switching -->
+          <div class="settings-section">
+            <div class="section-title">
+              <i data-lucide="globe"></i>
+              <span data-i18n="languageTitle">Change Language</span>
+            </div>
+            <p class="section-desc" data-i18n="languageDesc">Select preferred display language (English is default with global support).</p>
+            <select id="languageSelect" class="custom-select full-width-select">
+              <option value="en">🇬🇧 English (Default)</option>
+              <option value="bn">🇧🇩 বাংলা (Bengali)</option>
+              <option value="es">🇪🇸 Español (Spanish)</option>
+              <option value="fr">🇫🇷 Français (French)</option>
+              <option value="de">🇩🇪 Deutsch (German)</option>
+              <option value="hi">🇮🇳 हिन्दी (Hindi)</option>
+              <option value="ar">🇸🇦 العربية (Arabic)</option>
+              <option value="zh">🇨🇳 中文 (Chinese)</option>
+              <option value="ja">🇯🇵 日本語 (Japanese)</option>
+              <option value="pt">🇧🇷 Português (Portuguese)</option>
+              <option value="ru">🇷🇺 Русский (Russian)</option>
+              <option value="tr">🇹🇷 Türkçe (Turkish)</option>
+              <option value="it">🇮🇹 Italiano (Italian)</option>
+              <option value="id">🇮🇩 Bahasa Indonesia</option>
+              <option value="vi">🇻🇳 Tiếng Việt (Vietnamese)</option>
+              <option value="ko">🇰🇷 한국어 (Korean)</option>
+            </select>
+          </div>
+
+          <!-- Section 4: Choosing Theme Mode -->
+          <div class="settings-section">
+            <div class="section-title">
+              <i data-lucide="palette"></i>
+              <span data-i18n="themeTitle">Appearance / Theme Mode</span>
+            </div>
+            <div class="theme-options-grid">
+              <button class="theme-option-btn active" data-theme-val="dark">
+                <i data-lucide="moon"></i>
+                <span data-i18n="darkTheme">Dark Mode</span>
+              </button>
+              <button class="theme-option-btn" data-theme-val="light">
+                <i data-lucide="sun"></i>
+                <span data-i18n="lightTheme">Light Mode</span>
+              </button>
+              <button class="theme-option-btn" data-theme-val="system">
+                <i data-lucide="monitor"></i>
+                <span data-i18n="systemTheme">System Default</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-modal-footer">
+          <button id="saveSettingsBtn" class="btn btn-primary">
+            <i data-lucide="check"></i> <span data-i18n="saveAndClose">Save & Apply</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p data-i18n="footerText">AirBeam PRO • Modern 30GB Local Wi-Fi File Sharing Engine • 100% Offline & Private</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
