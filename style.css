@@ -1207,12 +1207,15 @@ body {
 @media (max-width: 768px) {
   .mode-selection-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
   
   .navbar {
-    flex-direction: column;
-    gap: 12px;
-    align-items: flex-start;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
   }
   
   .room-share-bar {
@@ -1226,8 +1229,102 @@ body {
   }
 
   .nav-actions {
-    width: 100%;
-    justify-content: space-between;
+    width: auto;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-container {
+    padding: 12px 8px;
+  }
+  
+  .navbar {
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    border-radius: var(--radius-md);
+  }
+  
+  .logo-text {
+    font-size: 1.2rem;
+  }
+  
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+  
+  .logo-text span {
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    margin-left: 4px;
+  }
+  
+  #networkIpText {
+    display: none !important;
+  }
+  
+  .network-badge {
+    padding: 5px 8px;
+    gap: 6px;
+  }
+  
+  .mode-card {
+    padding: 24px 18px;
+    border-radius: var(--radius-md);
+  }
+  
+  .card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .mode-card h2 {
+    font-size: 1.25rem;
+    margin-bottom: 8px;
+  }
+  
+  .mode-card p {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin-bottom: 16px;
+  }
+  
+  .quick-join-box {
+    margin-top: 12px;
+  }
+  
+  .quick-join-box input {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+  }
+  
+  .modal-card {
+    padding: 20px 16px;
+    border-radius: var(--radius-md);
+  }
+  
+  .modal-card.settings-card {
+    padding: 16px;
+    max-height: 95vh;
+  }
+  
+  .settings-modal-header {
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+
+  .panel-card {
+    padding: 20px 16px;
+    border-radius: var(--radius-md);
+  }
+
+  .panel-header {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
   }
 }
 
