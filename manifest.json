@@ -4,9 +4,9 @@
   "display": "standalone",
   "name": "Air Beam",
   "orientation": "any",
-  "scope": "/",
+  "scope": "/AIR-Beam/",
   "short_name": "Air Beam",
-  "start_url": "/",
+  "start_url": "/AIR-Beam/",
   "theme_color": "#ffffff",
   "description": "Share files up to 30GB over local wi-fi with zero lagging any device like andriod,ios,windows",
   "icons": [
