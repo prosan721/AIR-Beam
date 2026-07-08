@@ -320,6 +320,20 @@ document.addEventListener('DOMContentLoaded', () => {
   let isCameraScanning = false;
   let currentFacingMode = "environment"; // "environment" | "user"
 
+  // --- WebRTC P2P Layer (Stage 1: connection setup + verification) ---
+  // This runs ALONGSIDE the existing relay transfer (unchanged) so nothing
+  // that already works can break. It only opens a direct DataChannel and
+  // reports its status. File transfer will move onto this channel in Stage 2.
+  const RTC_CONFIG = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+  };
+  const senderPeers = new Map(); // peerId -> { pc, dataChannel }
+  let receiverPC = null;
+  let receiverDataChannel = null;
+
   // Initialize SVG progress ring
   const progressCircleEl = document.getElementById('progressCircle');
   if (progressCircleEl) {
@@ -1048,6 +1062,10 @@ document.addEventListener('DOMContentLoaded', () => {
         resetToHome();
         break;
 
+      case 'SIGNAL':
+        handleIncomingSignal(data.fromPeerId, data.signal);
+        break;
+
       case 'ERROR':
         alert(data.message);
         if (currentRole === 'RECEIVER') resetToHome();
@@ -1055,6 +1073,133 @@ document.addEventListener('DOMContentLoaded', () => {
 
       default:
         break;
+    }
+  }
+
+  // --- WebRTC P2P: Sender Side ---
+  // Called once a receiver joins the room (in addition to existing logic).
+  function initSenderPeerConnection(peerId) {
+    if (senderPeers.has(peerId)) return; // already set up for this device
+
+    const pc = new RTCPeerConnection(RTC_CONFIG);
+    const dataChannel = pc.createDataChannel('airbeam-file');
+    senderPeers.set(peerId, { pc, dataChannel });
+
+    dataChannel.binaryType = 'arraybuffer';
+
+    dataChannel.onopen = () => {
+      console.log(`[P2P] Direct connection OPEN with device ${peerId}`);
+      const statusEl = document.getElementById(`rx-status-${peerId}`);
+      if (statusEl) statusEl.textContent = 'P2P Connected ⚡';
+    };
+
+    dataChannel.onclose = () => {
+      console.log(`[P2P] Data channel closed with ${peerId}`);
+    };
+
+    dataChannel.onerror = (e) => {
+      console.warn(`[P2P] Data channel error with ${peerId}:`, e);
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'SIGNAL',
+          targetPeerId: peerId,
+          signal: { kind: 'ice', candidate: event.candidate }
+        }));
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log(`[P2P] Connection state (${peerId}):`, pc.connectionState);
+    };
+
+    pc.createOffer()
+      .then((offer) => pc.setLocalDescription(offer))
+      .then(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'SIGNAL',
+            targetPeerId: peerId,
+            signal: { kind: 'offer', sdp: pc.localDescription }
+          }));
+        }
+      })
+      .catch((err) => console.error('[P2P] Offer creation failed:', err));
+  }
+
+  // --- WebRTC P2P: Receiver Side ---
+  function initReceiverPeerConnection() {
+    const pc = new RTCPeerConnection(RTC_CONFIG);
+    receiverPC = pc;
+
+    pc.ondatachannel = (event) => {
+      receiverDataChannel = event.channel;
+      receiverDataChannel.binaryType = 'arraybuffer';
+
+      receiverDataChannel.onopen = () => {
+        console.log('[P2P] Direct connection OPEN with sender');
+        if (receiverReadyState) {
+          const hint = receiverReadyState.querySelector('[data-i18n="waitingForFile"], p');
+          if (hint) hint.setAttribute('data-p2p', 'connected');
+        }
+      };
+
+      receiverDataChannel.onerror = (e) => {
+        console.warn('[P2P] Data channel error:', e);
+      };
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'SIGNAL',
+          signal: { kind: 'ice', candidate: event.candidate }
+        }));
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log('[P2P] Connection state:', pc.connectionState);
+    };
+
+    return pc;
+  }
+
+  // --- WebRTC P2P: Route incoming signaling messages ---
+  async function handleIncomingSignal(fromPeerId, signal) {
+    if (!signal || !signal.kind) return;
+
+    try {
+      if (currentRole === 'SENDER') {
+        const entry = senderPeers.get(fromPeerId);
+        if (!entry) return;
+        const { pc } = entry;
+
+        if (signal.kind === 'answer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+        } else if (signal.kind === 'ice' && signal.candidate) {
+          await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        }
+      } else if (currentRole === 'RECEIVER') {
+        if (signal.kind === 'offer') {
+          if (!receiverPC) initReceiverPeerConnection();
+          await receiverPC.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          const answer = await receiverPC.createAnswer();
+          await receiverPC.setLocalDescription(answer);
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'SIGNAL',
+              signal: { kind: 'answer', sdp: receiverPC.localDescription }
+            }));
+          }
+        } else if (signal.kind === 'ice' && signal.candidate && receiverPC) {
+          await receiverPC.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        }
+      }
+    } catch (err) {
+      console.error('[P2P] Signal handling error:', err);
     }
   }
 
@@ -1152,6 +1297,13 @@ document.addEventListener('DOMContentLoaded', () => {
     isSending = false;
     currentChunkIndex = 0;
     totalFileChunks = 0;
+
+    // Stage 1: close any open P2P connections so nothing leaks between sessions
+    senderPeers.forEach(({ pc }) => { try { pc.close(); } catch (e) {} });
+    senderPeers.clear();
+    if (receiverPC) { try { receiverPC.close(); } catch (e) {} }
+    receiverPC = null;
+    receiverDataChannel = null;
 
     // Reset sender state
     connectedReceivers.clear();
@@ -1292,6 +1444,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (totalCount > 0 && selectedFile && !isSending) {
       startBroadcastBtn.disabled = false;
     }
+
+    // Stage 1: kick off a direct P2P (WebRTC) connection attempt to this
+    // device, in parallel with the existing relay path. Does not affect
+    // the current (working) file transfer.
+    initSenderPeerConnection(peerId);
   }
 
   function renderReceiversList() {
