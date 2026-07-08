@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.prosan721.twa",
+        "sha256_cert_fingerprints": ["B7:44:CF:5C:E5:40:E2:02:72:2E:41:48:B0:5D:B3:72:21:00:9B:BE:96:9F:D1:64:D9:EF:13:29:0F:61:FC:F7"]
+      }
+    }]
