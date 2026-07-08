@@ -11,8 +11,8 @@ const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 3000;
 
-// Serve static files from 'public' folder
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from current folder
+app.use(express.static(__dirname));
 app.use(express.json());
 
 // Active file sharing rooms memory store
